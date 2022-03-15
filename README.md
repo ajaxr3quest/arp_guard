@@ -39,7 +39,6 @@ You could start the program with the following arguments:
 -d, --disc            start the program launching an ARP discovery
 --export filename     export ARP table to a CSV file
 --import filename     import ARP table from a CSV file
--ni, --nointeractive  start the program in a non interactive mode
 ```
 
 ### Don't regret later
