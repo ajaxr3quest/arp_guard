@@ -707,7 +707,7 @@ def process_packet(paq):
             add_to_log(log_text)
             
             #posem el correu en cua si es dona el cas que no hem apuntat cap spoof
-            if arp_spoof == False:
+            if spoof == "N":
                 add_to_cua_alert("new_host",log_text)
                 
             table_arp_has_changed()
@@ -764,7 +764,6 @@ def hourly_thread():
 
         #fem un arp discovery
         arp_discovery()
-
 
     #enviem alertes, si tenim alertes creades, la configuracio SMTP esta OK i tenim alertes en cua
     send_queued_alerts()
