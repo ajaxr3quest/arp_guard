@@ -21,9 +21,14 @@ It's a CLI sniffer which sniffs ARP traffic to create its own ARP table. It lets
 Install **python3** and **pip**.
 
 
-Install all requirements with:
+Install all requirements (Linux users):
 ```
-pip install -r requirements.txt
+pip3 install -r linux_requirements.txt
+```
+
+Install all requirements (Windows users):
+```
+pip3 install -r windows_requirements.txt
 ```
 
 Start the program with:
