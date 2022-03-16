@@ -1057,6 +1057,7 @@ def clean_cmd():
         if config_loaded["SO"] == "W":
             os.system("cls")
         elif config_loaded["SO"] == "L":
+            import gnureadline #fix arrow key bug
             os.system("clear")
             
             
