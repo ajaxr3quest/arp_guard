@@ -73,7 +73,7 @@ def get_arguments():
     if arguments_consola.s_arg == True:
         start_sniff()
 
-    if arguments_consola.d_arg == True:
+    if arguments_consola.d_arg == True and config_loaded['ARP_DISC_ON'] == 'N':
         arp_discovery()
         
 
@@ -114,13 +114,13 @@ def load_config():
             ip_src = check_input_regex("    Enter your IP address: ", "ip")
             mac_src = check_input_regex("    Enter your MAC address [AA:BB:CC:DD:EE:FF]: ", "mac")
             net_sniff = check_input_regex("    Enter the target network range [example= 192.168.1.0/24]: ", "net")
-            arp_disc_on = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"])
+            arp_disc_on = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"]).upper()
             
             config_loaded = {"SO":sistema_operatiu, "IP_SRC":ip_src, "MAC_SRC":mac_src, "NET_SNIFF":net_sniff,"ARP_DISC_ON":arp_disc_on}
             
             with open(config_file, 'w',encoding="utf-8") as f:
                 f.write(json.dumps(config_loaded))
-                print("\r [*] The config file has been created. \r")
+                print("\r[*] The config file has been created. \r")
 
 
 
@@ -595,6 +595,10 @@ def show_table_arp(filter_by,filter_where):
     
     ara = datetime.now()
     
+    #si es filtra per hosts actius, enviarem previament un arp discovery per mirar qui esta actiu
+    if filter_by == "a":
+        arp_discovery()
+    
 
     #agafem els registres a mostrar
     for reg_arp in taula_arp:
@@ -721,6 +725,10 @@ def arp_discovery(verbose='N'):
     if verbose == 'Y':
         print("[*] ARP Discovery sent to the target network.")
         
+    #engegem lsniffer
+    if sniffer_running == False:
+        start_sniff('N')
+     
     arp_discovery = Ether(dst="ff:ff:ff:ff:ff:ff", src=config_loaded["MAC_SRC"]) / ARP(pdst=config_loaded["NET_SNIFF"], psrc=config_loaded["IP_SRC"])
     sendp(arp_discovery, verbose=0)
     
@@ -753,22 +761,16 @@ def send_queued_alerts():
                 
     
 def hourly_thread():
-    
     global config_loaded
     
     #auto discovery
     if config_loaded['ARP_DISC_ON'] == 'Y':
-        #engegem lsniffer
-        if sniffer_running == False:
-            start_sniff()
-
         #fem un arp discovery
         arp_discovery()
 
     #enviem alertes, si tenim alertes creades, la configuracio SMTP esta OK i tenim alertes en cua
     send_queued_alerts()
 
- 
     #recridem el proces cada hora
     hourly_thread_proc= threading.Timer(interval=3600,function=hourly_thread)
     hourly_thread_proc.daemon = True
@@ -1182,21 +1184,9 @@ if __name__ == "__main__":
 
 
             elif comanda == "disc" or comanda == "d": # fem un ARP Discovery
-
-                reopen_sniff= False
-                #iniciem lsniffer si estava parat
-                if sniffer_running == False:
-                    start_sniff('N')
-                    reopen_sniff=True
-
                 arp_discovery('Y')
-
-                #tornem a tencar lsniffer si lhem iniciat amb lARP discovery
-                if reopen_sniff == True:
-                    time.sleep(1)
-                    stop_sniff('N')
-
-
+                
+ 
             # mostra la taula ARP    
             elif len(comanda)>0 and comanda[0] == "t": 
 
