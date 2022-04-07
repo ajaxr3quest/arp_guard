@@ -154,7 +154,7 @@ def add_to_cua_alert(alert_type,alert_msg):
     global cua_alert
     
     #afegim un br perque faci salt en el correu la linia
-    alert_msg = alert_msg+"\n"
+    alert_msg = datetime.now().strftime("%Y-%m-%d %H:%M:%S")+" -- "+alert_msg+"\n"
     
     #creem lelement o lafegim segons pertoqui
     if alert_type not in cua_alert:
@@ -244,9 +244,9 @@ def export_arp_table(export_filename):
             reopen_sniff= True
         
         
-        export_lines= "id;hostname;ip;mac;first_seen;last_seen;spoof;hidden\n"
+        export_lines= "id;hostname;ip;mac;first_seen;last_seen;spoof;type\n"
         for reg_arp in taula_arp:
-            export_lines += str(reg_arp['id'])+";"+str(reg_arp['hostname'])+";"+ str(reg_arp['ip'])+";"+ str(reg_arp['mac'])+";"+str(reg_arp['first_seen'])+";"+str(reg_arp['last_seen'])+";"+str(reg_arp['spoof'])+";"+str(reg_arp['hidden'])+"\n"
+            export_lines += str(reg_arp['id'])+";"+str(reg_arp['hostname'])+";"+ str(reg_arp['ip'])+";"+ str(reg_arp['mac'])+";"+str(reg_arp['first_seen'])+";"+str(reg_arp['last_seen'])+";"+str(reg_arp['spoof'])+";"+str(reg_arp['type'])+"\n"
         
         f.write(export_lines)
         print("[*] The export file has been created: "+export_file)
@@ -277,7 +277,7 @@ def import_arp_table(import_filename):
             capcelera_found_fields = 0
             
             for camp in capcelera:
-                if camp in ['id','hostname','ip','mac','first_seen','last_seen', 'spoof','hidden']:
+                if camp in ['id','hostname','ip','mac','first_seen','last_seen', 'spoof','type']:
                     capcelera_found_fields += 1
                     
             if capcelera_num_fields != capcelera_found_fields:
@@ -359,32 +359,77 @@ def get_registry_by(fieldname,value):
     else:
         return False
 
-def change_registry_by_id(arp_id, arp_values):
+def change_registry_by_id(arp_id, arp_values,called_method):
 
     global taula_arp 
+
+    reg_updated= False
 
     #iterem per cada registre i busquem el que sha de modificar
     for reg_arp in taula_arp:
         
         if str(reg_arp['id']) == str(arp_id):
             reg_arp[arp_values[0]] = arp_values[1]
+            
+            #si es la primera vegada que remanem el registre, deixarem decidir si volem canviar el tipus tambe
+            if arp_values[0]!="type" and reg_arp["type"] == "?" and change_registry_by_id == "man":
+                registry_type= check_input(" Do you want to set a type for the registry? [default = ? / * / I ]: ", ["","*", "I"]).upper()
+                if registry_type != "":
+                    reg_arp["type"]= registry_type
+                    
+            break
                 
                 
     #fem un schedule per actualitzar el fitxer arp.json si el valor canviat no ha sigut el last_seen
     if arp_values[0] != "last_seen":
         table_arp_has_changed()
         
-        #ensenya missatge segons correspongui
-        if arp_values[0] == "hidden" and arp_values[1] == "Y":
-            msg= "Registry with ID = " +str(arp_id) +" has been deleted. "
-            print("[*] "+msg)
-            add_to_log(msg)
+        msg="Registry with ID = " +str(arp_id) +" has been updated. "
+        print("[*] "+msg)
+        add_to_log(msg)
             
-        else:
-            msg="Registry with ID = " +str(arp_id) +" has been updated. "
+            
+def delete_registry_by_id(arp_id):
+
+    global taula_arp 
+
+    #iterem per cada registre i busquem el que sha de modificar
+    row_id=0
+    
+    for reg_arp in taula_arp:
+        if str(reg_arp['id']) == str(arp_id):
+            #mostrem un missatge verbose de haver eliminat el registre
+            msg= "Registry has been deleted. ID = " +str(arp_id) +" ; MAC = "+str(reg_arp['mac'])+" ; IP = "+str(reg_arp['ip'])
+            if(str(reg_arp['hostname'])!=""):
+                msg= msg + " ; HOSTNAME = "+str(reg_arp['hostname'])
+            
             print("[*] "+msg)
             add_to_log(msg)
-         
+            #esborrem el registre
+            del taula_arp[row_id]
+            #fem un schedule per netejar
+            table_arp_has_changed()
+            return True
+        
+        row_id= row_id+1
+ 
+
+def update_arp_params_check(field,value):
+    
+    type_values= ["*","?","I"]
+    spoof_values= ["Y","N"]
+    
+    #tractem el valor spoof
+    if field == "spoof" and value.upper() in spoof_values:
+        return value.upper()
+    
+    
+    #tractem el valor type
+    if field == "type" and value.upper() in type_values:
+        return value.upper()
+    
+    #si algo no ens quadra retornem error
+    return False
         
 def get_update_arp_params(comanda):
     
@@ -402,15 +447,34 @@ def get_update_arp_params(comanda):
         param1= comanda_split[3].strip()
         camp_param1= comanda_split[5].strip()
         valor_param1= comanda_split[7].strip()
-        
+          
         #segon grup de parametres
         param2= comanda_split[8].strip()
         camp_param2= comanda_split[10].strip()
         valor_param2= comanda_split[12].strip()
-        
-        camps_valids= ["hostname","ip","mac","id","spoof"]
+         
+        camps_valids= ["hostname","ip","mac","id","spoof","type"]
         
         if camp_param1 in camps_valids and camp_param2 in camps_valids:
+            
+            #filtres segons el tipus de parametre entrat
+            if camp_param1 in ["spoof","type"]:
+                valor_param1 = update_arp_params_check(camp_param1,valor_param1)
+
+            #filtres segons el tipus de parametre entrat
+            if camp_param2 in ["spoof","type"]:
+                valor_param2 = update_arp_params_check(camp_param2,valor_param2)
+                
+            #mals valors
+            if valor_param1 == False or valor_param2 == False:
+                error_msg= "[!] Wrong value used."
+                if (camp_param1 == "spoof" and valor_param1 == False) or (camp_param2 == "spoof" and valor_param2 == False):
+                    error_msg = error_msg + " Spoof valid values: [Y/N] "
+                elif (camp_param1 == "type" and valor_param1 == False) or (camp_param2 == "type" and valor_param2 == False):
+                    error_msg = error_msg + " Type valid values: [*/?/I] "
+                    
+                print(error_msg)
+                return [False,False]
         
             if param1 == "-set" and param2 == '-where':
                 set_param=[camp_param1,valor_param1]
@@ -428,7 +492,7 @@ def get_update_arp_params(comanda):
             return [set_param,where_param]
             
         else:
-            print("[!] Wrong field used. Valid fields: id, hostname, ip, mac or spoof. ")
+            print("[!] Wrong field used. Valid fields: id, hostname, ip, mac, spoof or type. ")
             return [False,False]
     
     else:
@@ -450,7 +514,7 @@ def get_delete_arp_params(comanda):
         camp_where= comanda_split[5].strip()
         valor_where= comanda_split[7].strip()
         
-        camps_valids= ["hostname","ip","mac","id","spoof"]
+        camps_valids= ["hostname","ip","mac","id"]
         
         if camp_where in camps_valids and where_str == "-where":
             if where_str == "-where":
@@ -461,7 +525,7 @@ def get_delete_arp_params(comanda):
                 return False
 
         else:
-            print("[!] Wrong field used. Valid fields: id, hostname, ip, mac or spoof. ")
+            print("[!] Wrong field used. Valid fields: id, hostname, ip or mac. ")
             return False
     
     else:
@@ -560,10 +624,10 @@ def get_table_params(comanda):
     where_param = False
     
     #no te parametres adicionals
-    if comanda in ['table','tables','table*','table?','tablea']:
+    if comanda in ['table','table*','table?','tablea','tablead']:
         table_action= comanda.replace('table','')
         
-    elif comanda in ['t','ts','t*','t?','ta']:
+    elif comanda in ['t','t*','t?','ta','tad']:
         table_action= comanda.replace('t','')
         
     #te parametres adicionals
@@ -576,7 +640,7 @@ def get_table_params(comanda):
         if len(params) == 9:
             
             #comprovem que el nom del camp sigui correcte
-            camps_valids= ["hostname","ip","mac","id","spoof"]
+            camps_valids= ["hostname","ip","mac","id","spoof","type"]
             if params[5].strip() in camps_valids:
                 where_param = [params[5].strip(),params[7].strip()]
                 table_action = params[2].strip()
@@ -590,52 +654,73 @@ def show_table_arp(filter_by,filter_where):
     
     print("\r\r")
     
-    #preparem els registres per la taula
-    taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen"]]
+    #preparem els registres per la taula segons el tipus de taula que mostrem
+    if filter_by == "":
+        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen","Spoof","Type"]]
+    else:
+        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen","Spoof"]]
+    
     
     ara = datetime.now()
     
-    #si es filtra per hosts actius, enviarem previament un arp discovery per mirar qui esta actiu
-    if filter_by == "a":
+    #si es filtra per hosts actius + ARP Discovery, enviarem previament un arp discovery per mirar qui esta actiu
+    if filter_by == "ad":
         arp_discovery()
+        filter_by = "a"
     
 
     #agafem els registres a mostrar
     for reg_arp in taula_arp:
         
-        filter_where_cond= reg_arp["hidden"] =="N" and (filter_where == False or (filter_where != False and filter_where[1].lower() in reg_arp[filter_where[0]].lower() ) )
+        filter_where_cond=  (filter_where == False or (filter_where != False and filter_where[1].lower() in reg_arp[filter_where[0]].lower() ) )
         
         abans=""
         if filter_by == "a":
             abans = datetime.strptime(reg_arp["last_seen"],"%Y-%m-%d %H:%M:%S")
+            
+        add_to_table=False
         
         #filtre de editats (*)
-        if filter_by == "*" and reg_arp["hostname"] != "" and filter_where_cond:
-            taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
+        if filter_by == "*" and reg_arp["type"] == "*" and filter_where_cond:
+            add_to_table= True
 
         #filtre de desconeguts (?)
-        elif filter_by == "?" and reg_arp["hostname"] == "" and filter_where_cond:
-            taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
-
-        #filtre de taula spoof (s)
-        elif filter_by == "s" and reg_arp["spoof"] == "Y" and filter_where_cond:
-            taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
+        elif filter_by == "?" and reg_arp["type"] == "?" and filter_where_cond:
+            add_to_table= True
 
         #sense filtre
         elif filter_by == "" and filter_where_cond:
-            taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
+            add_to_table= True
             
         elif filter_by == "a" and (ara - abans).seconds <= 180 and filter_where_cond:
-            taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
-
+            add_to_table= True
+            
+            
+            
+        if add_to_table == True:
+            #afegim el tipus si es la taula general
+            if filter_by == "":
+                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["spoof"],reg_arp["type"]])
+            else:
+                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["spoof"]])
     
     #pintem la taula
     if len(taula_arp_format)>1:
         
-        taula = texttable.Texttable()
-        taula.set_cols_align(["l", "l", "c", "c", "c","c"]) # align de les columnes
+        taula = texttable.Texttable(max_width=89)
+
+        #si filtrem per taula general afegim el camp tipus
+        if filter_by == "":
+            taula.set_cols_width([3,25,15,17,10,10,5,4])
+            taula.set_cols_align(["l", "l", "c", "c", "c","c","c","c"]) # align de les columnes
+        else:
+            taula.set_cols_width([3,25,15,17,10,10,5])
+            taula.set_cols_align(["l", "l", "c", "c", "c","c","c"]) # align de les columnes
+            
         taula.add_rows(taula_arp_format)
         print(taula.draw())
+        
+        print("[~] "+str(len(taula_arp_format)-1)+" of "+str(len(taula_arp))+" registries displayed ")
         
     else:
         print("[?] Empty ARP table or filtered view does not contain any match. ")
@@ -672,7 +757,7 @@ def process_packet(paq):
                     abans = datetime.strptime(arp_registry["last_seen"],"%Y-%m-%d %H:%M:%S")
                     
                     if (ara-abans).seconds > 60: 
-                        change_registry_by_id(arp_registry["id"],["last_seen",ara.strftime("%Y-%m-%d %H:%M:%S")])
+                        change_registry_by_id(arp_registry["id"],["last_seen",ara.strftime("%Y-%m-%d %H:%M:%S")],'auto')
 
 
             if arp_spoof == True:
@@ -704,7 +789,7 @@ def process_packet(paq):
                 "first_seen":ara.strftime("%Y-%m-%d %H:%M:%S"),
                 "last_seen":ara.strftime("%Y-%m-%d %H:%M:%S"),
                 "spoof":spoof,
-                "hidden":"N"}
+                "type":"?"}
 
             taula_arp.append(paquet)
             log_text= "New registry: ID "+str(arp_id)+" ; IP "+str(paq[ARP].psrc)+" ; MAC "+str(paq[ARP].hwsrc)
@@ -960,7 +1045,7 @@ def send_alert(to,message):
             
         except Exception as e:
             server.quit()
-            print("[!] Email alert couldn't be send.")
+            add_to_log("Email alert to "+str(to)+" couldn't be send. Exception: "+str(e))
             
     return False
     
@@ -1121,7 +1206,7 @@ def print_menu():
     print("           (?)  - Unknown hosts                   ")
     print("           (*)  - Known hosts                     ")
     print("           (a)  - Active hosts                    ")
-    print("           (s)  - Spoofing try or IP change       ")
+    print("           (ad) - Active hosts + ARP Discovery    ")
     print("  (u)pdate      - Update an ARP registry          ")
     print("  (del)ete      - Delete an ARP registry          ")
     print("                                                  ")
@@ -1222,7 +1307,7 @@ if __name__ == "__main__":
                                 print("    ID "+str(registry["id"])+" ; HOSTNAME "+str(registry["hostname"])+" ; IP "+str(registry["ip"])+" ; MAC "+str(registry["mac"]) )
 
                         else:
-                            change_registry_by_id(arp_registry[0]["id"],set_param)
+                            change_registry_by_id(arp_registry[0]["id"],set_param,'man')
 
                     else:
                         print("[!] Please, don't drink and update at the same time, you will thank me later. ")
@@ -1247,7 +1332,7 @@ if __name__ == "__main__":
                                 print("    ID "+str(registry["id"])+" ; HOSTNAME "+str(registry["hostname"])+" ; IP "+str(registry["ip"])+" ; MAC "+str(registry["mac"]) )
 
                         else:
-                            change_registry_by_id(arp_registry[0]["id"],["hidden","Y"])
+                            delete_registry_by_id(arp_registry[0]["id"])
 
                     else:
                         print("[!] Do you think it is possible to delete something that does not exist at all?")
@@ -1325,13 +1410,13 @@ if __name__ == "__main__":
                 elif comanda_opcio  in ["t","table"]:
                     print("[~] (t)able: called by 't' or 'table'. Show hosts which had sent at least one ARP request or ARP reply on the target network. ")
                     print("\n[~] Filters: ")
-                    print("    table?/t? -> Unknown hosts: show registries with empty hostname. ")
-                    print("    table*/t* -> Known hosts: show registries with hostname set. ")
-                    print("    tablea/ta -> Active hosts: show hosts that have sent some ARP reply/request in the last 3 minutes.  ")
-                    print("    tables/ts -> Spoofing try or an IP has been changed: another registry already has the same IP or MAC address.")
-                    print("                 Show the registries which have spoof = Y ")
+                    print("    table/t     -> Show all registries (even the ones marked with type = ?). ")
+                    print("    table?/t?   -> Unknown hosts: show new registries (registries with type = ?). ")
+                    print("    table*/t*   -> Known hosts: show known registries (registries with type = *). ")
+                    print("    tablea/ta   -> Active hosts: show hosts that have sent some ARP reply/request in the last 3 minutes (more stealthy than 'tad').  ")
+                    print("    tablead/tad -> Active hosts + ARP Discovery: it sends and ARP Discovery before looking for active hosts.  ")
                     print("\n[~] Extra filters: ")
-                    print("    -where <field> = X : show registries which have the specified value. It works as an SQL like statement. Valid fields: hostname, id, ip, mac or spoof")
+                    print("    -where <field> = X : show registries which have the specified value. It works as an SQL like statement. Valid fields: hostname, id, ip, mac, spoof or type")
 
                 elif comanda_opcio  in ["u","update"]:
                     print("[~] (u)pdate: called by 'u' or 'update'. It updates one registry from the ARP table. ")
@@ -1339,9 +1424,14 @@ if __name__ == "__main__":
                     print("    -set   <field> = X : field and value that we would like to update. Valid fields: hostname, id, ip, mac or spoof ")
                     print("    -where <field> = X : field and value which indentifies one registry. Valid fields: hostname, id, ip or mac. ")
                     print("                         If we found more than one result, we must identify the registry by ID. ")
+                    print("\n[~] Type values:  ")
+                    print("    ?            : will be assigned automatically to new ARP entries.")
+                    print("    *            : used for entries you want to keep track.")
+                    print("    I            : used for entries you want to ignore.")
+                    
 
                 elif comanda_opcio  in ["del","delete"]:
-                    print("[~] (del)ete: called by 'del' or 'delete'. It deletes one registry from the ARP table. In fact, it updates it with hidden = Y. ")
+                    print("[~] (del)ete: called by 'del' or 'delete'. It deletes one registry from the ARP table.")
                     print("\n[~] Syntax: ")
                     print("    -where <field> = X : field and value which indentifies one registry. Valid fields: hostname, id, ip or mac. ")
                     print("                         If we found more than one result, we must identify the registry by ID. ")
@@ -1397,4 +1487,4 @@ if __name__ == "__main__":
         
     #handle derrors
     except Exception as e:
-        add_to_log(e)
+        add_to_log(str(e))
