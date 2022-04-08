@@ -372,7 +372,7 @@ def change_registry_by_id(arp_id, arp_values,called_method):
             reg_arp[arp_values[0]] = arp_values[1]
             
             #si es la primera vegada que remanem el registre, deixarem decidir si volem canviar el tipus tambe
-            if arp_values[0]!="type" and reg_arp["type"] == "?" and change_registry_by_id == "man":
+            if arp_values[0]!="type" and reg_arp["type"] == "?" and called_method == "man":
                 registry_type= check_input(" Do you want to set a type for the registry? [default = ? / * / I ]: ", ["","*", "I"]).upper()
                 if registry_type != "":
                     reg_arp["type"]= registry_type
