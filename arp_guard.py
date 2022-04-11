@@ -813,9 +813,13 @@ def arp_discovery(verbose='N'):
     #engegem lsniffer
     if sniffer_running == False:
         start_sniff('N')
-     
-    arp_discovery = Ether(dst="ff:ff:ff:ff:ff:ff", src=config_loaded["MAC_SRC"]) / ARP(pdst=config_loaded["NET_SNIFF"], psrc=config_loaded["IP_SRC"])
-    sendp(arp_discovery, verbose=0)
+    
+    try:
+        arp_discovery = Ether(dst="ff:ff:ff:ff:ff:ff", src=config_loaded["MAC_SRC"]) / ARP(pdst=config_loaded["NET_SNIFF"], psrc=config_loaded["IP_SRC"])
+        sendp(arp_discovery, verbose=0)
+        
+    except Exception as e:
+        add_to_log("ARP Discovery couldn't been send.")
     
     
 def send_queued_alerts():
@@ -1487,4 +1491,4 @@ if __name__ == "__main__":
         
     #handle derrors
     except Exception as e:
-        add_to_log(str(e))
+        add_to_log("Unhandle exception occurred during normal execution of the program.")
