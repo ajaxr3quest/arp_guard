@@ -978,7 +978,9 @@ def connect_smtp():
             server = smtplib.SMTP(smtp_config['SERVER'],smtp_config['PORT'])
     
     except Exception as e:
-        print("[!] Couldn't not connect to the server. Verify the server name and port number. ")
+        error_msg= "Could not connect to the server. Verify the server name and port number."
+        print("[!] "+error_msg)
+        add_to_log("[EMAIL] "+error_msg)
         return False
     
     
@@ -990,8 +992,10 @@ def connect_smtp():
     except smtplib.SMTPAuthenticationError as e:
         error_code= e.smtp_code
         error_message = e.smtp_error.decode("utf-8")
+        error_msg = "An error has ocurred during email connection. Error code: "+str(error_code)+" - Error message: "+error_message
 
-        print("[!] An error has ocurred during email connection. Error code: "+str(error_code)+" - Error message: "+error_message)
+        print("[!] "+error_msg)
+        add_to_log("[EMAIL] "+error_msg)
         return False
     
     except smtplib.SMTPResponseException as e:
@@ -1000,15 +1004,19 @@ def connect_smtp():
 
         #Gmail error
         if error_code == 535 and smtp_config['SERVER'] == "smtp.gmail.com":
-            print("[!] An error has ocurred during email connection. You either entered a wrong username/password or you have access to less secure apps disabled. Please make sure that you have less secure apps enabled visiting:  https://www.google.com/settings/security/lesssecureapps ")
+            error_msg = "An error has ocurred during email connection. You either entered a wrong username/password or you have access to less secure apps disabled. Please make sure that you have less secure apps enabled visiting:  https://www.google.com/settings/security/lesssecureapps "
 
         else:
-            print("[!] An error has ocurred during email connection. Error code: "+str(error_code)+" - Error message: "+error_message)
+            error_msg = "An error has ocurred during email connection. Error code: "+str(error_code)+" - Error message: "+error_message
 
+        print("[!] "+error_msg)
+        add_to_log("[EMAIL] "+error_msg)
         return False
             
     except Exception as e:
-        print("[!] Unknown exception. Please try again. ")
+        error_msg = "Unknown exception. Please try again. "
+        print("[!] "+error_msg)
+        add_to_log("[EMAIL] "+error_msg)
         return False
      
 
