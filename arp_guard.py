@@ -16,7 +16,7 @@ import threading
 import random
 import smtplib
 import ssl
-import socket
+import nmap
 
 # GLOBALS
 
@@ -782,13 +782,14 @@ def process_packet(paq):
                 
             ara= datetime.now()
             
-            #intentem agafar el hostname
+            #intentem agafar el netbios name a traves de nmap
             hostname = ""
             try:
-                ahostname = socket.gethostbyaddr(paq[ARP].psrc)
-                hostname = ahostname[0]
+                nm = nmap.PortScanner()
+                nm.scan(hosts=paq[ARP].psrc, arguments='-sU -p 137 --script nbstat')
+                hostname = str(nm[paq[ARP].psrc]["hostscript"][0]['output']).split(',')[0].split(':')[1].strip()
             #si no podem agafar el nom no pasa res
-            except socket.herror:
+            except Exception as e:
                 pass
 
             paquet = {
