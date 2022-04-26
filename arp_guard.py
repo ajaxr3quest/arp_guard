@@ -16,6 +16,7 @@ import threading
 import random
 import smtplib
 import ssl
+import socket
 
 # GLOBALS
 
@@ -634,7 +635,7 @@ def get_table_params(comanda):
     else:
         
         #separem els parametres passats
-        params= re.split(r'^(t|table)(\*[ ]{1,}|\?[ ]{1,}|s[ ]{1,}||a[ ]{1,}|[ ]{1,})(\-where)([ ]{1,})([a-zA-Z ]{1,})([=]{1})(.*)$',comanda)
+        params= re.split(r'^(t|table)(\*[ ]{1,}|\?[ ]{1,}|a[ ]{1,}|ad[ ]{1,}|[ ]{1,})(\-where)([ ]{1,})([a-zA-Z ]{1,})([=]{1})(.*)$',comanda)
 
         #si tenim la quantitat que toca de parametres
         if len(params) == 9:
@@ -780,10 +781,19 @@ def process_packet(paq):
                 arp_id = int(taula_arp[-1]["id"]) + 1
                 
             ara= datetime.now()
+            
+            #intentem agafar el hostname
+            hostname = ""
+            try:
+                ahostname = socket.gethostbyaddr(paq[ARP].psrc)
+                hostname = ahostname[0]
+            #si no podem agafar el nom no pasa res
+            except socket.herror:
+                pass
 
             paquet = {
                 "id":str(arp_id),
-                "hostname":"",
+                "hostname":hostname,
                 "ip":paq[ARP].psrc,
                 "mac":paq[ARP].hwsrc,
                 "first_seen":ara.strftime("%Y-%m-%d %H:%M:%S"),
