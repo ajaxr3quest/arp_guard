@@ -18,7 +18,8 @@ It's a CLI sniffer which sniffs ARP traffic to create its own ARP table. It lets
 
 ## Getting started
 
-Install **python3** and **pip**.
+Install **python3** and **pip**.  
+**Nmap** is optional (if installed it will automatically grab NetBIOS names from remote hosts).
 
 
 Install all requirements (Linux users):
