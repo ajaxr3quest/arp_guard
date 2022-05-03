@@ -17,6 +17,7 @@ import random
 import smtplib
 import ssl
 import nmap
+import ipaddress
 
 # GLOBALS
 
@@ -245,9 +246,9 @@ def export_arp_table(export_filename):
             reopen_sniff= True
         
         
-        export_lines= "id;hostname;ip;mac;first_seen;last_seen;spoof;type\n"
+        export_lines= "id;hostname;ip;mac;first_seen;last_seen;spoof;type;tcp_ports;udp_ports\n"
         for reg_arp in taula_arp:
-            export_lines += str(reg_arp['id'])+";"+str(reg_arp['hostname'])+";"+ str(reg_arp['ip'])+";"+ str(reg_arp['mac'])+";"+str(reg_arp['first_seen'])+";"+str(reg_arp['last_seen'])+";"+str(reg_arp['spoof'])+";"+str(reg_arp['type'])+"\n"
+            export_lines += str(reg_arp['id'])+";"+str(reg_arp['hostname'])+";"+ str(reg_arp['ip'])+";"+ str(reg_arp['mac'])+";"+str(reg_arp['first_seen'])+";"+str(reg_arp['last_seen'])+";"+str(reg_arp['spoof'])+";"+str(reg_arp['type'])+";"+str(reg_arp['tcp_ports'])+";"+str(reg_arp['udp_ports'])+"\n"
         
         f.write(export_lines)
         print("[*] The export file has been created: "+export_file)
@@ -274,11 +275,11 @@ def import_arp_table(import_filename):
             
             #comprovem la capcelera
             capcelera = parse_csv_line(linies.pop(0))
-            capcelera_num_fields = 8
+            capcelera_num_fields = 10
             capcelera_found_fields = 0
             
             for camp in capcelera:
-                if camp in ['id','hostname','ip','mac','first_seen','last_seen', 'spoof','type']:
+                if camp in ['id','hostname','ip','mac','first_seen','last_seen', 'spoof','type','tcp_ports','udp_ports']:
                     capcelera_found_fields += 1
                     
             if capcelera_num_fields != capcelera_found_fields:
@@ -555,7 +556,7 @@ def get_create_alert_params(comanda):
         param2= comanda_split[6].strip()
         valor_param2= comanda_split[8].strip()
         
-        valid_when= ["new_host","spoof"]
+        valid_when= ["new_host"]
         valid_param = ["-to","-when"]
         
         #mirem que els parametres siguin valids
@@ -588,7 +589,7 @@ def get_create_alert_params(comanda):
     
     #retornem segons els resultats
     if len(to_param) == 0 or when_param == "":
-        print("[!] Syntax error. Syntax: alertn/an -to <value> -when <event>. Possible events: new_host, spoof ")
+        print("[!] Syntax error. Syntax: alertn/an -to <value> -when <event>. Possible events: new_host ")
         return [False,False]
     else:
         if wrong_email == True:
@@ -623,19 +624,20 @@ def get_table_params(comanda):
     
     table_action= False
     where_param = False
+    table_expanded = False
     
     #no te parametres adicionals
-    if comanda in ['table','table*','table?','tablea','tablead']:
+    if comanda in ['table','table*','table?','tablea','tablead','table+','table*+','table?+','tablea+','tablead+']:
         table_action= comanda.replace('table','')
         
-    elif comanda in ['t','t*','t?','ta','tad']:
+    elif comanda in ['t','t*','t?','ta','tad','t+','t*+','t?+','ta+','tad+']:
         table_action= comanda.replace('t','')
         
     #te parametres adicionals
     else:
         
         #separem els parametres passats
-        params= re.split(r'^(t|table)(\*[ ]{1,}|\?[ ]{1,}|a[ ]{1,}|ad[ ]{1,}|[ ]{1,})(\-where)([ ]{1,})([a-zA-Z ]{1,})([=]{1})(.*)$',comanda)
+        params= re.split(r'^(t|table)(\*[\+]{0,1}[ ]{1,}|\?[\+]{0,1}[ ]{1,}|a[\+]{0,1}[ ]{1,}|ad[\+]{0,1}[ ]{1,}|[\+]{0,1}[ ]{1,})(\-where)([ ]{1,})([a-zA-Z ]{1,})([=]{1})(.*)$',comanda)
 
         #si tenim la quantitat que toca de parametres
         if len(params) == 9:
@@ -645,21 +647,25 @@ def get_table_params(comanda):
             if params[5].strip() in camps_valids:
                 where_param = [params[5].strip(),params[7].strip()]
                 table_action = params[2].strip()
-
-            
-    return [table_action,where_param]
+                
+    #separem el table expanded
+    if table_action != False and '+' in table_action:
+        table_action= table_action.replace('+','')
+        table_expanded= True
+        
+    return [table_action,where_param,table_expanded]
 
         
-def show_table_arp(filter_by,filter_where):
+def show_table_arp(filter_by,filter_where,expanded_table):
     global taula_arp
     
     print("\r\r")
-    
+
     #preparem els registres per la taula segons el tipus de taula que mostrem
-    if filter_by == "":
-        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen","Spoof","Type"]]
+    if expanded_table == True:
+        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen","Type","TCP Ports","UDP Ports"]]
     else:
-        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen","Spoof"]]
+        taula_arp_format = [["ID", "Hostname", "IP", "MAC", "First seen","Last seen"]]
     
     
     ara = datetime.now()
@@ -700,23 +706,23 @@ def show_table_arp(filter_by,filter_where):
             
         if add_to_table == True:
             #afegim el tipus si es la taula general
-            if filter_by == "":
-                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["spoof"],reg_arp["type"]])
+            if expanded_table == True:
+                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["type"],reg_arp["tcp_ports"],reg_arp["udp_ports"]])
             else:
-                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["spoof"]])
+                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
     
     #pintem la taula
     if len(taula_arp_format)>1:
         
         taula = texttable.Texttable(max_width=89)
 
-        #si filtrem per taula general afegim el camp tipus
-        if filter_by == "":
-            taula.set_cols_width([3,25,15,17,10,10,5,4])
-            taula.set_cols_align(["l", "l", "c", "c", "c","c","c","c"]) # align de les columnes
+        #view extesa
+        if expanded_table == True:
+            taula.set_cols_width([3,20,15,17,10,10,5,20,20])
+            taula.set_cols_align(["l", "l", "c", "c", "c","c","c","l","l"]) # align de les columnes
         else:
-            taula.set_cols_width([3,25,15,17,10,10,5])
-            taula.set_cols_align(["l", "l", "c", "c", "c","c","c"]) # align de les columnes
+            taula.set_cols_width([3,20,15,17,15,15])
+            taula.set_cols_align(["l", "l", "c", "c", "c","c"]) # align de les columnes
             
         taula.add_rows(taula_arp_format)
         print(taula.draw())
@@ -762,9 +768,6 @@ def process_packet(paq):
 
 
             if arp_spoof == True:
-                log_text= "ARP spoofing/IP change detected. New registry has been created: IP "+str(paq[ARP].psrc)+" ; MAC "+str(paq[ARP].hwsrc)
-                add_to_log(log_text)
-                add_to_cua_alert("spoof",log_text)
 
                 #netejem la variable per guardar-lo com si fos un nou valor
                 arp_registries = False
@@ -782,28 +785,23 @@ def process_packet(paq):
                 
             ara= datetime.now()
             
-            #intentem agafar el netbios name a traves de nmap
-            hostname = ""
-            try:
-                nm = nmap.PortScanner()
-                nm.scan(hosts=paq[ARP].psrc, arguments='-sU -p 137 --script nbstat')
-                hostname = str(nm[paq[ARP].psrc]["hostscript"][0]['output']).split(',')[0].split(':')[1].strip()
-            #si no podem agafar el nom no pasa res
-            except Exception as e:
-                pass
-
+            #reconeixement del host
+            nmap_info= nmap_recon(paq[ARP].psrc)
+            
             paquet = {
                 "id":str(arp_id),
-                "hostname":hostname,
+                "hostname":nmap_info['hostname'],
                 "ip":paq[ARP].psrc,
                 "mac":paq[ARP].hwsrc,
                 "first_seen":ara.strftime("%Y-%m-%d %H:%M:%S"),
                 "last_seen":ara.strftime("%Y-%m-%d %H:%M:%S"),
                 "spoof":spoof,
-                "type":"?"}
+                "type":"?",
+                "tcp_ports":nmap_info['tcp'],
+                "udp_ports":nmap_info['udp']}
 
             taula_arp.append(paquet)
-            log_text= "New registry: ID "+str(arp_id)+" ; IP "+str(paq[ARP].psrc)+" ; MAC "+str(paq[ARP].hwsrc)
+            log_text= "New host has been detected: ID "+str(arp_id)+" ; IP "+str(paq[ARP].psrc)+" ; MAC "+str(paq[ARP].hwsrc)
             add_to_log(log_text)
             
             #posem el correu en cua si es dona el cas que no hem apuntat cap spoof
@@ -815,7 +813,58 @@ def process_packet(paq):
         proccesing_packet_on = False
        
  
+#1 - fem un scanneig de ports habituals de forma lenta amb nmap
+#2 - si escau, sintenta agafar el nom de la maquina amb NetBIOS
+def nmap_recon(host_scan):
+    
+    r = {"hostname":"","tcp":"","udp":""}
+    
+    if ipaddress.ip_address(host_scan) in ipaddress.ip_network(config_loaded["NET_SNIFF"]) and config_loaded['NMAP_ON'] == 'Y':
+        
+        #intentem crear lscanner
+        try:
+            nm = nmap.PortScanner()
 
+        except Exception as e:
+            add_to_log("Nmap couldn't be found on the system. For using nmap functions you must install it and then install the python requirements.")
+            return r
+
+
+        #fem un analisis complert del host en busca de ports oberts i el SO
+        try:
+            add_to_log("Launching nmap port scan against: "+str(host_scan))
+            nm.scan(hosts=host_scan, arguments='-sU -sS -n -Pn --max-rate 24 --open -p135,137,139,389,500,502,514,2049,2000,2001,5060,5061,T:21,22,23,25,80,110,143,443,445,515,587,631,993,995,1433,3306,3389,5800,5900,8080,9100,U:53,67,69,88,119,123,138,161,162')
+            
+            #guardem els ports
+            for port_proto in ['tcp','udp']:
+                
+                
+                #recorrem larray de tcp i udp
+                if port_proto in nm[host_scan]:
+                    
+                    for tport in nm[host_scan][port_proto]:
+                        r[port_proto]= r[port_proto]+str(tport)+" ("+str(nm[host_scan][port_proto][tport]['name'])+")\n"
+
+                    if r[port_proto]!="":
+                        r[port_proto]=r[port_proto]
+                        
+            add_to_log("Nmap port scan against "+str(host_scan)+" has finished without errors. Results saved.")
+            
+            #busquem el hostname a traves de NetBIOS (si te el port 137 obert)
+            if 'udp' in nm[host_scan] and 137 in nm[host_scan]['udp'] and nm[host_scan]['udp'][137]['state'] == 'open':
+                nm.scan(hosts=host_scan, arguments='-sU -p 137 --script nbstat')
+                add_to_log("Launched secondary nmap scan (nbtstat) against: "+str(host_scan))
+                r["hostname"] = str(nm[host_scan]["hostscript"][0]['output']).split(',')[0].split(':')[1].strip()
+            
+            
+            
+            
+        except Exception as e:
+            add_to_log("Nmap couldn't be finished. Error: "+str(e))
+            pass
+
+
+    return r
 
 def arp_discovery(verbose='N'):
     if verbose == 'Y':
@@ -1112,7 +1161,7 @@ def show_table_alert():
 def create_alert(to,when):
     global taula_alert
     
-    when_trans= {"new_host":"host creation","spoof":"spoofing try / IP change"}
+    when_trans= {"new_host":"host creation"}
     
     for existing_alert in taula_alert:
         if existing_alert["to"] == to and existing_alert["when"] == when:
@@ -1299,7 +1348,7 @@ if __name__ == "__main__":
             # mostra la taula ARP    
             elif len(comanda)>0 and comanda[0] == "t": 
 
-                table_action, table_params = get_table_params(comanda.strip())
+                table_action, table_params, table_expanded = get_table_params(comanda.strip())
 
                 #sintaxis incorrecte
                 if table_action == False and table_params == False:
@@ -1307,7 +1356,7 @@ if __name__ == "__main__":
 
                 #mostra la taula segons filtre
                 else:
-                    show_table_arp(table_action,table_params)
+                    show_table_arp(table_action,table_params,table_expanded)
 
 
 
@@ -1440,6 +1489,8 @@ if __name__ == "__main__":
                     print("    tablead/tad -> Active hosts + ARP Discovery: it sends and ARP Discovery before looking for active hosts.  ")
                     print("\n[~] Extra filters: ")
                     print("    -where <field> = X : show registries which have the specified value. It works as an SQL like statement. Valid fields: hostname, id, ip, mac, spoof or type")
+                    print("\n[~] Expanded table: ")
+                    print("    Add '+' to any of the previously mentioned to get a more precise view. Example: t?+,t*+,etc  ")
 
                 elif comanda_opcio  in ["u","update"]:
                     print("[~] (u)pdate: called by 'u' or 'update'. It updates one registry from the ARP table. ")
@@ -1475,10 +1526,9 @@ if __name__ == "__main__":
                     print("[~] (a)lert(n): called by 'an' or 'alertn'. It creates a new email alert when a given event is triggered. ")
                     print("\n[~] Syntax: ")
                     print("      -to <field> = X : email that will be notified. ")
-                    print("    -when <field> = X : event that we want to catch. The possible events are 'new_host' and 'spoof'. ")
+                    print("    -when <field> = X : event that we want to catch. Possible events: 'new_host'. ")
                     print("\n[~] Events: ")
                     print("     new_host: it will be triggered when a new host is added to the ARP table. ")
-                    print("        spoof: it will be triggered when a spoofing try or an IP has been changed. ")
 
 
                 elif comanda_opcio  in ["adel","alertdel"]:
@@ -1510,4 +1560,5 @@ if __name__ == "__main__":
         
     #handle derrors
     except Exception as e:
+        print(e)
         add_to_log("Unhandle exception occurred during normal execution of the program.")
