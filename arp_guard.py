@@ -743,7 +743,7 @@ def show_table_arp(filter_by,filter_where,expanded_table):
         elif filter_by == "" and filter_where_cond:
             add_to_table= True
             
-        elif filter_by == "a" and (ara - abans).seconds <= 180 and filter_where_cond:
+        elif filter_by == "a" and (ara - abans).total_seconds() <= 180 and filter_where_cond:
             add_to_table= True
             
             
@@ -807,7 +807,7 @@ def process_packet(paq):
                     ara = datetime.now()
                     abans = datetime.strptime(arp_registry["last_seen"],"%Y-%m-%d %H:%M:%S")
                     
-                    if (ara-abans).seconds > 60: 
+                    if (ara-abans).total_seconds() > 60: 
                         change_registry_by_id(arp_registry["id"],["last_seen",ara.strftime("%Y-%m-%d %H:%M:%S")],'auto')
 
 
