@@ -117,8 +117,9 @@ def load_config():
             mac_src = check_input_regex("    Enter your MAC address [AA:BB:CC:DD:EE:FF]: ", "mac")
             net_sniff = check_input_regex("    Enter the target network range [example= 192.168.1.0/24]: ", "net")
             arp_disc_on = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"]).upper()
+            nmap_on = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [y/n]: ", ["y", "n"]).upper()
             
-            config_loaded = {"SO":sistema_operatiu, "IP_SRC":ip_src, "MAC_SRC":mac_src, "NET_SNIFF":net_sniff,"ARP_DISC_ON":arp_disc_on}
+            config_loaded = {"SO":sistema_operatiu, "IP_SRC":ip_src, "MAC_SRC":mac_src, "NET_SNIFF":net_sniff,"ARP_DISC_ON":arp_disc_on,"NMAP_ON":nmap_on}
             
             with open(config_file, 'w',encoding="utf-8") as f:
                 f.write(json.dumps(config_loaded))
@@ -126,7 +127,50 @@ def load_config():
 
 
 
-
+def change_config():
+    print("\r")
+    
+    global config_loaded
+    
+    #ensenyem la config actual
+    print("[~] Current config: ")
+    for opt_loaded in config_loaded:
+        print("    "+str(opt_loaded)+": "+str(config_loaded[opt_loaded]))
+    
+    print("\r")
+    config_opt = check_input("[~] Choose an option to change or leave it blank for quit: ", ["SO", "IP_SRC","MAC_SRC","NET_SNIFF","ARP_DISC_ON","NMAP_ON",""])
+    
+    #comprovem que el nou valor de config quadri amb lo que ha de ser
+    if config_opt == "SO":
+        opt_new = check_input("    Which OS are you using? [W=Windows/L=Linux]: ", ["W", "L"])
+    
+    elif config_opt == "IP_SRC":
+        opt_new = check_input_regex("    Enter your IP address: ", "ip")
+        
+    elif config_opt == "MAC_SRC":
+        opt_new = check_input_regex("    Enter your MAC address [AA:BB:CC:DD:EE:FF]: ", "mac")
+        
+    elif config_opt == "NET_SNIFF":
+        opt_new = check_input_regex("    Enter the target network range [example= 192.168.1.0/24]: ", "net")
+        
+    elif config_opt == "ARP_DISC_ON":
+        opt_new = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"]).upper()
+        
+    elif config_opt == "NMAP_ON":
+        opt_new = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [y/n]: ", ["y", "n"]).upper()
+    
+    elif config_opt == "":
+        return True
+    
+    #guardem el nou valor
+    config_loaded[config_opt]= opt_new
+    
+    try:
+        with open(config_file, 'w',encoding="utf-8") as f:
+            f.write(json.dumps(config_loaded))
+            
+    except Exception as e:
+        add_to_log("Error while saving config. "+str(e))
 
 
 def check_input(input_text, input_opcions):
@@ -804,9 +848,8 @@ def process_packet(paq):
             log_text= "New host has been detected: ID "+str(arp_id)+" ; IP "+str(paq[ARP].psrc)+" ; MAC "+str(paq[ARP].hwsrc)
             add_to_log(log_text)
             
-            #posem el correu en cua si es dona el cas que no hem apuntat cap spoof
-            if spoof == "N":
-                add_to_cua_alert("new_host",log_text)
+            #posem el correu en cua si es dona el cas que es un nou host
+            add_to_cua_alert("new_host",log_text)
                 
             table_arp_has_changed()
         
@@ -1286,6 +1329,7 @@ def print_menu():
     print("           (n)  - Create a new email alert        ")
     print("         (del)  - Delete an email alert           ")
     print("                                                  ")
+    print("  (conf)        - Change current config           ")
     print("  (help) <opt>  - Help with a given option        ")
     print("  (e)xit        - Close the program               ")
     print("                                                  ")
@@ -1319,7 +1363,7 @@ if __name__ == "__main__":
 
     try:
         inicia()
-        wrong_command = ["Did your cat fall asleep on your keyboard again?","Long Beeeeeeeeep Short beep Short beep.","Really George?","There ain't any AI in the world that could understand what you just typed.","Sorry but... I'm not going to do it.","It's coffee time."]
+        wrong_command = ["Did your cat fall asleep on your keyboard again?","Long Beeeeeeeeep Short beep Short beep.","Really George?","There ain't any AI in the world that could understand what you just typed.","Sorry but... I'm not going to do it.","It's coffee time.","Even the almighty Thor has not understand that."]
 
 
         while True:
@@ -1466,6 +1510,10 @@ if __name__ == "__main__":
 
 
 
+            elif comanda == "conf": # canviem la config del programa
+                change_config()
+
+
             #print help
             elif re.search(r'^(help ).*$', comanda) != None:
                 comanda_opcio = comanda.split()[1].strip()
@@ -1540,6 +1588,11 @@ if __name__ == "__main__":
                 elif comanda_opcio  in ["e","exit"]:
                     print("[~] If you need help with this command you shouldn't be using this software.")
 
+
+                elif comanda_opcio == "conf":
+                    print("[~] (conf): called by 'conf'. It displays the current config and let you change it.")
+                    
+                    
                 else:
                     print("[?] Wrong command. "+random.choice(wrong_command))
 
