@@ -108,16 +108,16 @@ def load_config():
     #generem el fitxer de configuracio
     else:
         print_menu()
-        yy = check_input("[?] Looks like your first time here. Do you want to create the config file? [y/y]: ", ["y"])
+        yy = check_input("[?] Looks like your first time here. Do you want to create the config file? [Y/Y]: ", ["Y"])
         
-        if yy.lower() == "y":
+        if yy == "Y":
             print("\r")
             sistema_operatiu = check_input("    Which OS are you using? [W=Windows/L=Linux]: ", ["W", "L"])
             ip_src = check_input_regex("    Enter your IP address: ", "ip")
             mac_src = check_input_regex("    Enter your MAC address [AA:BB:CC:DD:EE:FF]: ", "mac")
             net_sniff = check_input_regex("    Enter the target network range [example= 192.168.1.0/24]: ", "net")
-            arp_disc_on = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"]).upper()
-            nmap_on = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [y/n]: ", ["y", "n"]).upper()
+            arp_disc_on = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [Y/N]: ", ["Y", "N"]).upper()
+            nmap_on = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [Y/N]: ", ["Y", "N"]).upper()
             
             config_loaded = {"SO":sistema_operatiu, "IP_SRC":ip_src, "MAC_SRC":mac_src, "NET_SNIFF":net_sniff,"ARP_DISC_ON":arp_disc_on,"NMAP_ON":nmap_on}
             
@@ -154,10 +154,10 @@ def change_config():
         opt_new = check_input_regex("    Enter the target network range [example= 192.168.1.0/24]: ", "net")
         
     elif config_opt == "ARP_DISC_ON":
-        opt_new = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [y/n]: ", ["y", "n"]).upper()
+        opt_new = check_input("    Do you want to send ARP discoveries every hour? (stealthy fellow=n, I don't care if I'm being noticed=y) [Y/N]: ", ["Y", "N"]).upper()
         
     elif config_opt == "NMAP_ON":
-        opt_new = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [y/n]: ", ["y", "n"]).upper()
+        opt_new = check_input("    Do you want to use nmap for automatically port discovery on new host detection? [Y/N]: ", ["Y", "N"]).upper()
     
     elif config_opt == "":
         return True
@@ -751,7 +751,7 @@ def show_table_arp(filter_by,filter_where,expanded_table):
         if add_to_table == True:
             #afegim el tipus si es la taula general
             if expanded_table == True:
-                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["type"],reg_arp["tcp_ports"],reg_arp["udp_ports"]])
+                taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"],reg_arp["type"],reg_arp["tcp_ports"].replace("---","\n"),reg_arp["udp_ports"].replace("---","\n")])
             else:
                 taula_arp_format.append([reg_arp["id"], reg_arp["hostname"], reg_arp["ip"], reg_arp["mac"],  reg_arp["first_seen"], reg_arp["last_seen"]])
     
@@ -886,7 +886,7 @@ def nmap_recon(host_scan):
                 if port_proto in nm[host_scan]:
                     
                     for tport in nm[host_scan][port_proto]:
-                        r[port_proto]= r[port_proto]+str(tport)+" ("+str(nm[host_scan][port_proto][tport]['name'])+")\n"
+                        r[port_proto]= r[port_proto]+str(tport)+" ("+str(nm[host_scan][port_proto][tport]['name'])+")---"
 
                     if r[port_proto]!="":
                         r[port_proto]=r[port_proto]
@@ -1055,7 +1055,7 @@ def load_smtp_config(force_creation='N'):
             sender_email = check_input_regex("Enter the email address: ","email")
             sender_password = input("Enter the password: ")
             #crypt_password= input(" Enter a password for encrypting your saved credentials. This will be asked every time you open ARP Guard: ")
-            ssl_enabled = check_input("Is SSL/TLS enabled? [y/n]: ",["y","n"])
+            ssl_enabled = check_input("Is SSL/TLS enabled? [Y/N]: ",["Y","N"])
             
             smtp_config = {"PORT":port, "SERVER":smtp_server, "EMAIL":sender_email, "PASSWORD":sender_password,"SSL_ENABLED":ssl_enabled}
             print("\r")
